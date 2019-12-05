@@ -62,16 +62,28 @@ void addLabel(chai3d::cLabel *&label, chai3d::cCamera *camera) {
     label->m_fontColor.setBlack();
     camera->m_frontLayer->addChild(label);
 }
-// update camera label
+// update camera label TODO: fix rho
 void updateCameraLabel(chai3d::cLabel *&camera_pos, chai3d::cCamera *&camera) {
     camera_pos->setText("Camera located at: (" +
-                        chai3d::cStr(rho * sin(camera->getSphericalPolarRad()) *
+                        chai3d::cStr(0.35 * sin(camera->getSphericalPolarRad()) *
                              cos(camera->getSphericalAzimuthRad())) +
                         ", " +
-                        chai3d::cStr(rho * sin(camera->getSphericalPolarRad()) *
+                        chai3d::cStr(0.35 * sin(camera->getSphericalPolarRad()) *
                              sin(camera->getSphericalAzimuthRad())) +
-                        ", " + chai3d::cStr(rho * cos(camera->getSphericalPolarRad())) +
+                        ", " + chai3d::cStr(0.35 * cos(camera->getSphericalPolarRad())) +
                         ")");
+
+
+/*
+
+                        camera_pos->setText("Camera located at: (" +
+                                            chai3d::cStr(rho * sin(camera->getSphericalPolarRad()) *
+                                                 cos(camera->getSphericalAzimuthRad())) +
+                                            ", " +
+                                            chai3d::cStr(rho * sin(camera->getSphericalPolarRad()) *
+                                                 sin(camera->getSphericalAzimuthRad())) +
+                                            ", " + chai3d::cStr(rho * cos(camera->getSphericalPolarRad())) +
+                                            ")");*/
 }
 
 //

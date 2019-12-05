@@ -44,6 +44,7 @@
 #include "helpPanel.h"
 #include "energyGraph.h"
 #include "labelManager.h"
+#include "cameraManager.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -137,8 +138,6 @@ const cVector3d backPlaneNorm =
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
-// radius of the camera
-double rho = .35;
 
 // a world that contains all objects of the virtual environment
 cWorld *world;
@@ -163,7 +162,7 @@ vector<Atom *> spheres;
 
 // a colored background
 cBackground *background;
-// mkl wch
+
 // a label to display the rate [Hz] at which the simulation is running
 cLabel *labelRates;
 
@@ -243,6 +242,7 @@ AtomManager *atomsManager;
 HelpPanel *helpPanel;
 EnergyGraph *graph;
 LabelManager *labels;
+CameraManager *cameraManager;
 
 
 //------------------------------------------------------------------------------
@@ -406,37 +406,12 @@ int main(int argc, char *argv[]) {
   // set the background color of the environment
   world->m_backgroundColor.setWhite();
 
+  //TODO: eliminate camera references and use getter method/ initialize in class
   // create a camera and insert it into the virtual world
   camera = new cCamera(world);
   world->addChild(camera);
 
-  // creates the radius, origin reference, along with the zenith and azimuth
-  // direction vectors
-  cVector3d origin(0.0, 0.0, 0.0);
-  cVector3d zenith(0.0, 0.0, 1.0);
-  cVector3d azimuth(1.0, 0.0, 0.0);
-
-  // sets the camera's references of the origin, zenith, and azimuth
-  camera->setSphericalReferences(origin, zenith, azimuth);
-
-  // sets the camera's position to have a radius of .1, located at 0 radians
-  // (vertically and horizontally)
-  camera->setSphericalRad(rho, 0, 0);
-
-  // set the near and far clipping planes of the camera
-  // anything in front or behind these clipping planes will not be rendered
-  camera->setClippingPlanes(0.01, 10.0);
-
-  // set stereo mode
-  camera->setStereoMode(stereoMode);
-
-  // set stereo eye separation and focal length (applies only if stereo is
-  // enabled)
-  camera->setStereoEyeSeparation(0.03);
-  camera->setStereoFocalLength(1.8);
-
-  // set vertical mirrored display mode
-  camera->setMirrorVertical(false);
+  cameraManager = new CameraManager(camera);
 
   // create a light source
   light = new cSpotLight(world);
@@ -984,16 +959,6 @@ void updateHaptics(void) {
       button1_changed = false;
     }
 
-    // mkl wch
-    /*
-    // update frozen state label
-    string trueFalse = freezeAtoms ? "true" : "false";
-    isFrozen->setText("Freeze simulation: " + trueFalse);
-    auto isFrozenWidth = (width - isFrozen->getWidth()) - 5;
-    isFrozen->setLocalPos(isFrozenWidth, 15);
-*/
-
-
     screenshotLabel->setLocalPos(5, height - 20);
     if (screenshotCounter == 5000) {
       camera->m_frontLayer->addChild(screenshotLabel);
@@ -1479,10 +1444,10 @@ void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
   } else if (a_key == GLFW_KEY_LEFT_BRACKET ||
              a_key == GLFW_KEY_RIGHT_BRACKET) {
     int direction = (a_key == GLFW_KEY_RIGHT_BRACKET) ? 1 : -1;
-    if ((direction == 1 && rho < 1) || (direction == -1 && rho > .15)) {
+    if ((direction == 1 && cameraManager->getRho() < 1) || (direction == -1 && cameraManager->getRho() > .15)) {
       camera->setSphericalRadius(camera->getSphericalRadius() +
                                  .01 * direction);
-      rho = camera->getSphericalRadius();
+      cameraManager->setRho(camera->getSphericalRadius());
       updateCameraLabel(camera_pos, camera);
     }
   } else if (a_key == GLFW_KEY_R) {
@@ -1490,7 +1455,7 @@ void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
       camera->setSphericalPolarRad(0);
       camera->setSphericalAzimuthRad(0);
       camera->setSphericalRadius(.35);
-      rho = .35;
+      cameraManager->setRho(0.35);
       updateCameraLabel(camera_pos, camera);
   }else if(a_key == GLFW_KEY_LEFT_CONTROL || a_key == GLFW_KEY_RIGHT_CONTROL){
       helpPanel->toggleDisplay();
