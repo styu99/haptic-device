@@ -43,6 +43,7 @@
 #include "utility.h"
 #include "helpPanel.h"
 #include "energyGraph.h"
+#include "labelManager.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -162,13 +163,13 @@ vector<Atom *> spheres;
 
 // a colored background
 cBackground *background;
-
+// mkl wch
 // a label to display the rate [Hz] at which the simulation is running
 cLabel *labelRates;
-
+/*
 // a label to show the potential energy
 cLabel *LJ_num;
-
+*/
 // label showing the # anchored
 cLabel *num_anchored;
 
@@ -253,6 +254,7 @@ cLabel *writeConLabel;
 AtomManager *atomsManager;
 HelpPanel *helpPanel;
 EnergyGraph *graph;
+LabelManager *labels;
 
 
 //------------------------------------------------------------------------------
@@ -512,6 +514,7 @@ int main(int argc, char *argv[]) {
   }
 
   helpPanel = new HelpPanel(camera);
+  labels = new LabelManager(camera);
 
   // Either no arguments were given or argument was an integer
   if (argc == 1 || isNumber(argv[1])) {
@@ -675,10 +678,8 @@ int main(int argc, char *argv[]) {
   // WIDGETS
   //--------------------------------------------------------------------------
   // create a label to display the haptic and graphic rate of the simulation
-  addLabel(labelRates, camera);
 
-  // potential energy label
-  addLabel(LJ_num, camera);
+  addLabel(labelRates, camera);
 
   // number anchored label
   addLabel(num_anchored, camera);
@@ -766,8 +767,12 @@ int main(int argc, char *argv[]) {
     // process events
     glfwPollEvents();
 
+
     // signal frequency counter
     freqCounterGraphics.signal(1);
+
+
+
   }
   // close window
   glfwDestroyWindow(window);
@@ -1221,12 +1226,8 @@ void updateHaptics(void) {
 
       helpPanel->resize(width, height);
 
-      // JD: moved this out of nested for loop so that test is set only when
-      // fully calculated update haptic and graphic rate data
-      LJ_num->setText("Potential Energy: " + cStr((potentialEnergy / 2), 5));
-      // update position of label
-      LJ_num->setLocalPos(0, 15, 0);
-      // count the number of anchored atoms
+      labels->updateEnergyNum(potentialEnergy);
+
       auto anchored{0};
       for (auto i{0}; i < spheres.size(); i++) {
         if (spheres[i]->isAnchor()) {
