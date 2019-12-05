@@ -38,7 +38,6 @@ EnergyGraph::EnergyGraph(cCamera* cam, bool lj, int cluster_size){
       global_min_known = false;
     }
 
-
     scope->setRange(lower_bound, upper_bound);
     scope_upper->setText(cStr(upper_bound));
     scope_lower->setText(cStr(lower_bound));
@@ -94,12 +93,7 @@ void EnergyGraph::updateGraph(cPrecisionClock *clock, double potentialEnergy){
     if (!global_min_known) {
       if ((potentialEnergy / 2) < global_minimum) {
         global_minimum = (potentialEnergy / 2);
-        /*
-        num_anchored->setText(to_string(anchored) + " anchored / " +
-                              to_string(spheres.size()) + " total");
-        auto num_anchored_width = (width - num_anchored->getWidth()) - 5;
-        num_anchored->setLocalPos(num_anchored_width, 0);
-*/
+
         // Update scope
         double currentTime = clock->getCurrentTimeSeconds();
 

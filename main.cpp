@@ -41,7 +41,8 @@
 #include "inputHandling.h"
 #include "potentials.h"
 #include "utility.h"
-#include "graphics/helpPanel.h"
+#include "helpPanel.h"
+#include "energyGraph.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -183,10 +184,6 @@ cLabel *camera_pos;
 // a label to identify the potential energy surface
 cLabel *potentialLabel;
 
-// labels for the scope
-cLabel *scope_upper;
-cLabel *scope_lower;
-
 // a flag that indicates if the haptic simulation is currently running
 bool simulationRunning = false;
 
@@ -220,16 +217,10 @@ int swapInterval = 1;
 // root resource path
 string resourceRoot;
 
-// a scope to monitor the potential energy
-cScope *scope;
-
-// global minimum for the given cluster size
-double global_minimum;
-
 // a pointer to the selected object
 Atom *selectedAtom = NULL;
 
-// offset between the position of the mmouse click on the object and the object
+// offset between the position of the mouse click on the object and the object
 // reference frame location.
 cVector3d selectedAtomOffset;
 
@@ -244,9 +235,6 @@ double centerCoords[3] = {50.0, 50.0, 50.0};
 
 // default potential is Lennard Jones
 Potential energySurface = LENNARD_JONES;
-
-// check if able to read in the global min
-bool global_min_known = true;
 
 // keep track of how long screenshot label has been displayed
 int screenshotCounter = -2;
@@ -264,6 +252,7 @@ cLabel *writeConLabel;
 
 AtomManager *atomsManager;
 HelpPanel *helpPanel;
+EnergyGraph *graph;
 
 
 //------------------------------------------------------------------------------
@@ -524,7 +513,6 @@ int main(int argc, char *argv[]) {
 
   helpPanel = new HelpPanel(camera);
 
-
   // Either no arguments were given or argument was an integer
   if (argc == 1 || isNumber(argv[1])) {
     // Set numSpheres to input; if none or negative, default is five
@@ -687,32 +675,28 @@ int main(int argc, char *argv[]) {
   // WIDGETS
   //--------------------------------------------------------------------------
   // create a label to display the haptic and graphic rate of the simulation
-  addLabel(labelRates);
+  addLabel(labelRates, camera);
 
   // potential energy label
-  addLabel(LJ_num);
+  addLabel(LJ_num, camera);
 
   // number anchored label
-  addLabel(num_anchored);
+  addLabel(num_anchored, camera);
 
   // total energy label
-  addLabel(total_energy);
+  addLabel(total_energy, camera);
 
   // frozen state label
-  addLabel(isFrozen);
+  addLabel(isFrozen, camera);
 
   // camera position label
-  addLabel(camera_pos);
+  addLabel(camera_pos, camera);
 
   // energy surface label
-  addLabel(potentialLabel);
+  addLabel(potentialLabel, camera);
 
-  // Add labels to the graph
-  addLabel(scope_upper);
-  addLabel(scope_lower);
-
-  addLabel(writeConLabel);
-  addLabel(screenshotLabel);
+  addLabel(writeConLabel, camera);
+  addLabel(screenshotLabel, camera);
 
   // create a background
   background = new cBackground();
@@ -734,40 +718,8 @@ int main(int argc, char *argv[]) {
     close();
     return (-1);
   }
-  // create a scope to plot potential energy
-  scope = new cScope();
-  scope->setLocalPos(0, 60);
-  camera->m_frontLayer->addChild(scope);
-  scope->setSignalEnabled(true, true, false, false);
-  scope->setTransparencyLevel(.7);
-  global_minimum = getGlobalMinima(spheres.size());
-  double lower_bound, upper_bound;
-  if (global_minimum != 0 && (energySurface == LENNARD_JONES)) {
-    if (global_minimum > -50) {
-      upper_bound = 0;
-      lower_bound = global_minimum - .5;
-    } else {
-      upper_bound = 0 + (global_minimum * .2);
-      lower_bound = global_minimum - 3;
-    }
-    global_min_known = true;
-  } else {
-    upper_bound = 0;
-    lower_bound = static_cast<int>(spheres.size()) * -3;
-    global_minimum = 0;
-    global_min_known = false;
-  }
-  scope->setRange(lower_bound, upper_bound);
-  scope_upper->setText(cStr(upper_bound));
-  scope_lower->setText(cStr(lower_bound));
 
-  // Height was guessed and added manually - there's probably a better way
-  // To do this but the scope height is protected
-  scope_upper->setLocalPos(cAdd(scope->getLocalPos(), cVector3d(0, 180, 0)));
-  scope_lower->setLocalPos(scope->getLocalPos());
-  // TODO - make more legible
-  // scope_upper->m_fontColor.setRed();
-  // scope_lower->m_fontColor.setRed();
+  graph = new EnergyGraph(camera,energySurface == LENNARD_JONES, spheres.size());
 
   //
   screenshotLabel->setText("Screenshot taken");
@@ -1286,52 +1238,8 @@ void updateHaptics(void) {
       auto num_anchored_width = (width - num_anchored->getWidth()) - 5;
       num_anchored->setLocalPos(num_anchored_width, 0);
 
-      // Update scope
-      double currentTime = clock.getCurrentTimeSeconds();
+        graph->updateGraph(&clock, potentialEnergy);
 
-      // rounds current time to the nearest tenth
-      double currentTimeRounded = double(int(currentTime * 10 + .5)) / 10;
-
-      // The number fmod() is compared to is the threshold, this adjusts the
-      // timescale
-      if (fmod(currentTime, currentTimeRounded) <= .01) {
-        scope->setSignalValues(potentialEnergy / 2, global_minimum);
-      }
-      // scale the graph if the minimum isn't known
-      if (!global_min_known) {
-        if ((potentialEnergy / 2) < global_minimum) {
-          global_minimum = (potentialEnergy / 2);
-          num_anchored->setText(to_string(anchored) + " anchored / " +
-                                to_string(spheres.size()) + " total");
-          auto num_anchored_width = (width - num_anchored->getWidth()) - 5;
-          num_anchored->setLocalPos(num_anchored_width, 0);
-
-          // Update scope
-          double currentTime = clock.getCurrentTimeSeconds();
-
-          // rounds current time to the nearest tenth
-          double currentTimeRounded = double(int(currentTime * 10 + .5)) / 10;
-
-          // The number fmod() is compared to is the threshold, this adjusts the
-          // timescale
-          if (fmod(currentTime, currentTimeRounded) <= .01) {
-            scope->setSignalValues(potentialEnergy / 2, global_minimum);
-          }
-          // scale the graph if the minimum isn't known
-          if (!global_min_known) {
-            if ((potentialEnergy / 2) < global_minimum) {
-              global_minimum = (potentialEnergy / 2);
-            }
-            if (global_minimum < scope->getRangeMin()) {
-              auto new_lower = scope->getRangeMin() - 25;
-              auto new_upper = scope->getRangeMax() - 25;
-              scope->setRange(new_lower, new_upper);
-              scope_upper->setText(cStr(scope->getRangeMax()));
-              scope_lower->setText(cStr(scope->getRangeMin()));
-            }
-          }
-        }
-      }
     }
     cVector3d force = current->getForce();
 
@@ -1495,10 +1403,10 @@ void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
   } else if (a_key == GLFW_KEY_S) {
     // option - save screenshot to file
     cImagePtr image = cImage::create();
-    camera->m_frontLayer->removeChild(scope);
+    //camera->m_frontLayer->removeChild(scope); //mkl TODO
     camera->renderView(width, height);
     camera->copyImageBuffer(image);
-    camera->m_frontLayer->addChild(scope);
+//    camera->m_frontLayer->addChild(scope);   //mkl TODO
     int index = 0;
     string filename_stem = "lj" + to_string(spheres.size()) + "_";
     while (fileExists(filename_stem + to_string(index) + ".png")) {

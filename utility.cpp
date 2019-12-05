@@ -17,8 +17,9 @@ bool fileExists(const std::string &name) {
   struct stat buffer;
   return (stat(name.c_str(), &buffer) == 0);
 }
-
+// mkl wch
 //read in global minimum by cluster size
+/*
 double getGlobalMinima(int cluster_size) {
   std::string file_path = "../resources/data/";
   std::string file_name = "global_minima.txt";
@@ -46,6 +47,7 @@ double getGlobalMinima(int cluster_size) {
   return minimum;
 }
 
+*/
 // check if char array represents a number
 bool isNumber(char number[]) {
   for (int i = 0; number[i] != 0; i++) {
@@ -55,7 +57,7 @@ bool isNumber(char number[]) {
 }
 
 // add status labels
-void addLabel(chai3d::cLabel *&label) {
+void addLabel(chai3d::cLabel *&label, chai3d::cCamera *camera) {
     label = new chai3d::cLabel(font);
     label->m_fontColor.setBlack();
     camera->m_frontLayer->addChild(label);

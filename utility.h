@@ -14,7 +14,7 @@ bool isNumber(char number[]);
 void addHotkeyLabel(std::string key, std::string text);
 
 // add a label to the world with default black text
-void addLabel(chai3d::cLabel *&label);
+void addLabel(chai3d::cLabel *&label, chai3d::cCamera *camera);
 
 // Update camera text
 void updateCameraLabel(chai3d::cLabel *&camera_pos, chai3d::cCamera *&camera);
