@@ -166,18 +166,6 @@ cBackground *background;
 // mkl wch
 // a label to display the rate [Hz] at which the simulation is running
 cLabel *labelRates;
-/*
-// a label to show the potential energy
-cLabel *LJ_num;
-*/
-// label showing the # anchored
-cLabel *num_anchored;
-
-// a label to display the total energy of the system
-cLabel *total_energy;
-
-// a label to show whether or not the atoms are frozen
-cLabel *isFrozen;
 
 // a label to display the camera position
 cLabel *camera_pos;
@@ -514,7 +502,7 @@ int main(int argc, char *argv[]) {
   }
 
   helpPanel = new HelpPanel(camera);
-  labels = new LabelManager(camera);
+  labels = new LabelManager(camera, width);
 
   // Either no arguments were given or argument was an integer
   if (argc == 1 || isNumber(argv[1])) {
@@ -680,15 +668,6 @@ int main(int argc, char *argv[]) {
   // create a label to display the haptic and graphic rate of the simulation
 
   addLabel(labelRates, camera);
-
-  // number anchored label
-  addLabel(num_anchored, camera);
-
-  // total energy label
-  addLabel(total_energy, camera);
-
-  // frozen state label
-  addLabel(isFrozen, camera);
 
   // camera position label
   addLabel(camera_pos, camera);
@@ -1005,11 +984,15 @@ void updateHaptics(void) {
       button1_changed = false;
     }
 
+    // mkl wch
+    /*
     // update frozen state label
     string trueFalse = freezeAtoms ? "true" : "false";
     isFrozen->setText("Freeze simulation: " + trueFalse);
     auto isFrozenWidth = (width - isFrozen->getWidth()) - 5;
     isFrozen->setLocalPos(isFrozenWidth, 15);
+*/
+
 
     screenshotLabel->setLocalPos(5, height - 20);
     if (screenshotCounter == 5000) {
@@ -1228,16 +1211,18 @@ void updateHaptics(void) {
 
       labels->updateEnergyNum(potentialEnergy);
 
-      auto anchored{0};
+      //TODO: change to use AtomManager's variable
+      // TODO: move to only when triggered by hotkey
+      int anchored = 0;
       for (auto i{0}; i < spheres.size(); i++) {
         if (spheres[i]->isAnchor()) {
           anchored++;
         }
       }
-      num_anchored->setText(to_string(anchored) + " anchored / " +
-                            to_string(spheres.size()) + " total");
-      auto num_anchored_width = (width - num_anchored->getWidth()) - 5;
-      num_anchored->setLocalPos(num_anchored_width, 0);
+
+//TODO: change to use AtomManager's variable
+
+        labels->updateNumAnchored(anchored, spheres.size(), width);
 
         graph->updateGraph(&clock, potentialEnergy);
 
@@ -1394,6 +1379,12 @@ void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
       glfwSetWindowMonitor(window, NULL, x, y, w, h, mode->refreshRate);
       glfwSwapInterval(swapInterval);
     }
+
+    // update labels that change with height/width dimensions
+    //TODO: add frozen with AtomManager attributes
+    //labels->updateNumAnchored();
+    labels->updateFrozen(mode->width, freezeAtoms);
+
   } else if (a_key == GLFW_KEY_U) {
     // action - unanchor all key
     for (auto i{0}; i < spheres.size(); i++) {
@@ -1417,6 +1408,7 @@ void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
     screenshotCounter = 5000;
   } else if (a_key == GLFW_KEY_SPACE) {  // freeze simulation
     freezeAtoms = !freezeAtoms;
+    labels->updateFrozen(width, freezeAtoms);
   } else if (a_key == GLFW_KEY_C) {  // save atoms to con file
     ofstream writeFile;
     string dir1 = "./log/";
