@@ -28,13 +28,15 @@ bool Atom::isAnchor(){
 }
 
 void Atom::setAnchor(bool newAnchor){
-    if (newAnchor) {
+    if (newAnchor && notCalculated == false) {
         // setting atom to be an anchor, so change color to blue
-        m_material->setBlue();
+        m_material->setBlueRoyal();
         current = false;
-    } else {
+    } else if(notCalculated == true){
         // removing atom as anchor, so change color to white
-        m_material->setColor(baseColor);
+        m_material->setWhiteSmoke();
+    }else{
+        m_material->setGray();
     }
     anchor = newAnchor;
 }
@@ -49,10 +51,10 @@ void Atom::setCurrent(bool newCurrent) {
         m_material->setRed();
         anchor = false;  // cannot be both anchor and current
     } else if (anchor) {
-        m_material->setBlue();
+        m_material->setBlueRoyal();
     } else {
         // toggling current off, so set to white
-        m_material->setColor(baseColor);
+        m_material->setWhiteSmoke();
     }
     current = newCurrent;
 }
