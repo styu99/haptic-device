@@ -7,7 +7,6 @@
 // STATES
 //------------------------------------------------------------------------------
 enum MouseState { MOUSE_IDLE, MOUSE_SELECTION };
-enum Potential { LENNARD_JONES, MORSE, MACHINE_LEARNING };
 
 // vector holding hotkey key labels
 extern std::vector<chai3d::cLabel *> hotkeyKeys;

@@ -9,6 +9,11 @@ Atom::Atom(double radius, double sphere_mass, cColorf color): cShapeSphere(radiu
     anchor = false;
     current = false;
     repeating = false;
+    notCalculated = false;
+    copynumber = -1;
+    xPos = 0;
+    yPos = 0;
+    zPos = 0;
     velVector = new cShapeLine(cVector3d(0, 0, 0), cVector3d(0, 0, 0));
     force.zero();
     this->sphere_mass = sphere_mass;
@@ -17,7 +22,6 @@ Atom::Atom(double radius, double sphere_mass, cColorf color): cShapeSphere(radiu
     baseColor = color;
     m_material->setColor(baseColor);
 }
-
 
 bool Atom::isAnchor(){
     return anchor;
@@ -67,6 +71,35 @@ void Atom::setRepeating(bool newRepeat) {
         m_material->setColor(baseColor);
     }
     repeating = newRepeat;
+}
+
+bool Atom::isNotCalculated() { return notCalculated; }
+
+void Atom::setNotCalculated(bool newNotCalculated) {
+  if (newNotCalculated) {
+    notCalculated = true;
+  }
+  else {
+    notCalculated = false;
+  }
+}
+
+void Atom::setLatticePosition(int xPosition, int yPosition, int zPosition){
+  xPos = xPosition;
+  yPos = yPosition;
+  zPos = zPosition;
+}
+
+double Atom::getLatticeX(){return xPos;}
+double Atom::getLatticeY(){return yPos;}
+double Atom::getLatticeZ(){return zPos;}
+
+void Atom::setCopyNumber(int newNum){
+  copynumber = newNum;
+}
+
+int Atom::getCopyNumber(){
+  return copynumber;
 }
 
 cVector3d Atom::getVelocity() {
