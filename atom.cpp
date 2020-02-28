@@ -166,3 +166,5 @@ double Atom::getMass(){
 void Atom::setColor(cColorf color){
     m_material->setColor(color);
 }
+
+void Atom::setID(int id) { lammpsID = id; }

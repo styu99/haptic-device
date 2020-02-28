@@ -34,6 +34,7 @@
  */
 //==============================================================================
 //------------------------------------------------------------------------------
+#include "lammps-7Aug19/src/library.h"
 #include "atom.h"
 #include "atomManager.h"
 #include "chai3d.h"
@@ -47,7 +48,7 @@
 #include "cameraManager.h"
 #include "energySurface.h"
 #include "assert.h"
-//------------------------------------------------------------------------------
+//-------------------------------------------laamps-7Aug19/src/STUBS/mpi.h"-----------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <unistd.h>
@@ -237,6 +238,10 @@ double CutoffRadius = 4.8;
 void drawPbc();
 void updatePbc();
 
+// for LAAMPS 
+void lammpsInit(string, cTexture2dPtr);
+// LAMMPS Object
+void *lmpsObj = NULL;
 
 // mkl
 // default potential is Lennard Jones
@@ -265,6 +270,7 @@ EnergySurface *energySurface;
 
 //------------------------------------------------------------------------------
 // DECLARED MACROS
+// DECLARED MACROScTexture2dPtr
 //------------------------------------------------------------------------------
 // convert to resource path
 #define RESOURCE_PATH(p) (char *)((resourceRoot + string(p)).c_str())
@@ -565,7 +571,14 @@ int main(int argc, char *argv[]) {
       }
     }
 
-  } else if (argc < 3){  // read in specified file
+  } else if(strcmp(argv[1], "lammps") || strcmp(argv[1],"l")){
+      if(argc < 2){
+          cout << "ERROR: No lammps input file specified" << endl;
+      }
+      else{
+          lammpsInit(argv[2], texture);
+      }
+  }else if (argc < 3){  // read in specified file
     string file_path = "../resources/data/";
     string file_name = argv[1];
     ifstream readFile(file_path + file_name);
@@ -577,8 +590,12 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
     string line;
-    for (int i = 0; i < 2; i++) {
+    double sphereMass;
+    for (int i = 0; i < 11; i++) {
       getline(readFile, line);
+      if(i == 8){
+        sphereMass = stod(line);
+      }
     }
 
     //get lattice lengths
@@ -612,7 +629,7 @@ int main(int argc, char *argv[]) {
         inputCoords.push_back(stod(buffer));
       }
       // create a sphere and define its radius
-      Atom *new_atom = new Atom(SPHERE_RADIUS, SPHERE_MASS);
+      Atom *new_atom = new Atom(SPHERE_RADIUS, sphereMass);
 
       // store pointer to sphere primitive
       spheres.push_back(new_atom);
@@ -1112,6 +1129,7 @@ void updateHaptics(void) {
 
       // JD: edited this so that many operations are removed out of the inner
       // loop This loop is for computing the force on atom i
+      if(energySurface->getType() == LENNARD_JONES || energySurface->getType() == MORSE){
         for (int i = 0; i < spheres.size(); i++) {
           // compute force on atom
           cVector3d force;
@@ -1248,6 +1266,73 @@ void updateHaptics(void) {
           }
         }
       }
+      // run LAAMPS
+      // TODO: make this not hardcoded
+     }else{ 
+ // find eeeeee
+          if(lmpsObj != NULL){
+              // calculate potential energy by extracting compute
+              double actualPE = (*(double *) lammps_extract_compute(lmpsObj, (char *) "1", 0, 0));
+
+              potentialEnergy =  actualPE * 2;
+              cout << "potential energy is : " << actualPE << endl;
+
+              // uncompute so we can reuse compute id
+              lammps_command(lmpsObj, (char *) "uncompute 1");
+              lammps_command(lmpsObj, (char *) "compute 1 all pe");
+
+              // get force array, let our simulation handle velocity because of different time intervals and damping
+              int natoms = lammps_get_natoms(lmpsObj);
+              double x[natoms][3];
+              double v[natoms][3];
+              double f[natoms][3];
+
+              lammps_gather_atoms(lmpsObj, (char *) "x", 1, 3, &x);
+              lammps_gather_atoms(lmpsObj, (char *) "v", 1, 3, &v);
+              lammps_gather_atoms(lmpsObj, (char *) "f", 1, 3, &f);
+
+              lammps_command(lmpsObj, (char *) "run 1");
+
+              for (int i = 0; i < spheres.size(); i++) {
+                cVector3d force = cVector3d(f[i][0], f[i][1], f[i][2]);
+                cVector3d velocity = cVector3d(v[i][0], v[i][1], v[i][2]);
+                cVector3d position = cVector3d(x[i][0], x[i][1], x[i][2]);
+                cVector3d centerCoord = cVector3d(centerCoords[0], centerCoords[1], centerCoords[2]);
+
+                current = spheres[i];
+
+                current->setForce(force);
+                //cVector3d sphereAcc = (force / current->getMass());
+                //current->setVelocity(
+                    //V_DAMPING * (current->getVelocity() + timeInterval * sphereAcc));
+                current->setVelocity(velocity);
+                  // compute /position
+                //cVector3d spherePos_change = timeInterval * current->getVelocity() +
+                                                // cSqr(timeInterval) * sphereAcc;
+                //double magnitude = spherePos_change.length();
+                //cVector3d spherePos = current->getLocalPos() + spherePos_change;
+
+                if (current->isCurrent() || current->isAnchor()) {
+                    // update position of atoms in lammps
+                    cVector3d pos = current->getLocalPos();
+                    double newX = pos.x()/.02 + centerCoords[0];
+                    double newY = pos.y()/.02 + centerCoords[1];
+                    double newZ = pos.z()/.02 + centerCoords[2];
+                    string command = "set atom " + std::to_string(i + 1) + " x " + std::to_string(newX) + " y " + std::to_string(newY) + " z " + std::to_string(newZ);
+                    lammps_command(lmpsObj, (char *) command.c_str());
+
+                } else{
+                    current->setLocalPos(0.02 * (position - centerCoord));
+                }
+                  //current->setLocalPos(0.02 * (position - centerCoord));
+              }
+              if (!checkBounds(current->getLocalPos())) {
+                cout << "ATOM OUT OF BOUNDS";
+              }
+
+          }
+
+     }
 
       //TODO: get this to not segfault
       /*
@@ -1616,4 +1701,83 @@ void updatePbc(){
     }
   }
 }
+void lammpsInit(string filename, cTexture2dPtr texture){
+    // energySurface = LAMMPS; TODO: undo the hardcoding
 
+    // creates global LAMMPS object
+    lammps_open_no_mpi(0, NULL, &lmpsObj);
+
+    lammps_file(lmpsObj, &filename[0]);
+
+    cout << lammps_command(lmpsObj, (char *) "compute 1 all pe") << endl;
+    int natoms = lammps_get_natoms(lmpsObj);
+    std::cout << "There are: " << natoms << " atoms" << std::endl;
+    std::cout << "LAMMPS version: " << lammps_version(lmpsObj) << std::endl;
+
+    // initialize arrays for position, velocity, and force of each atom
+    double x[natoms][3];
+    //double v[natoms][3];
+    //double f[natoms][3];
+
+    lammps_gather_atoms(lmpsObj, (char *) "x", 1, 3, &x);
+
+
+    //lammps_gather_atoms(lmpsObj, (char *) "v", 1, 3, &v);
+    //lammps_gather_atoms(lmpsObj, (char *) "f", 1, 3, &f);
+
+    /*for(int i = 0; i < natoms; i++){
+        std::cout << "array: " << v[i][0] << ", " << v[i][1] << ", " << v[i][2] << endl;
+    }
+    
+    std::cout << "There are " << natoms << " atoms in this system" << endl;*/
+
+    lammps_command(lmpsObj, (char *) "run 1");
+
+    // Create atom objects
+    bool firstAtom = true;
+    for(int i = 0; i < natoms; i++) {
+      // create a sphere and define its radius
+      Atom *new_atom = new Atom(SPHERE_RADIUS, SPHERE_MASS);
+
+      // store pointer to sphere primitive
+      spheres.push_back(new_atom);
+
+      // add sphere primitive to world
+      world->addChild(new_atom);
+
+      // add line to world
+      world->addChild(new_atom->getVelVector());
+
+      // set graphic properties of sphere
+      new_atom->setTexture(texture);
+      new_atom->m_texture->setSphericalMappingEnabled(true);
+      new_atom->setUseTexture(true);
+
+      //set lammps ID
+      new_atom->setID(i);
+
+      // Set the first and second sphere (the one being controlled to red
+      // initially and the anchor in blue)
+      if (i == 1) {  // sphere is current
+        new_atom->setCurrent(true);
+      } else if (i == 0) {  // sphere is anchor
+        new_atom->setAnchor(true);
+      }
+      if (firstAtom) {
+        for (int j = 0; j < 3; j++) {
+          centerCoords[j] = x[i][j];
+        }
+
+        new_atom->setLocalPos(0.0, 0.0, 0.0);
+        firstAtom = !firstAtom;
+      } else {
+        // scale coordinates
+        /*
+        for (int j = 0; j < 3; j++) {
+          x[i][j] = 0.02 * (x[i][j] - centerCoords[j]);
+        }
+        new_atom->setLocalPos(x[i][0], x[i][1], x[i][2]);*/
+        new_atom->setLocalPos(0.02 * (x[i][0] - centerCoords[0]), 0.02 * (x[i][1] - centerCoords[1]), 0.2 * (x[i][2] - centerCoords[2]));
+      }
+    }
+}
