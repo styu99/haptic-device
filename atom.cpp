@@ -9,11 +9,6 @@ Atom::Atom(double radius, double sphere_mass, cColorf color): cShapeSphere(radiu
     anchor = false;
     current = false;
     repeating = false;
-    notCalculated = false;
-    copynumber = -1;
-    xPos = 0;
-    yPos = 0;
-    zPos = 0;
     velVector = new cShapeLine(cVector3d(0, 0, 0), cVector3d(0, 0, 0));
     force.zero();
     this->sphere_mass = sphere_mass;
@@ -23,20 +18,19 @@ Atom::Atom(double radius, double sphere_mass, cColorf color): cShapeSphere(radiu
     m_material->setColor(baseColor);
 }
 
+
 bool Atom::isAnchor(){
     return anchor;
 }
 
 void Atom::setAnchor(bool newAnchor){
-    if (newAnchor && notCalculated == false) {
+    if (newAnchor) {
         // setting atom to be an anchor, so change color to blue
-        m_material->setBlueRoyal();
+        m_material->setBlue();
         current = false;
-    } else if(notCalculated == true){
+    } else {
         // removing atom as anchor, so change color to white
-        m_material->setWhiteSmoke();
-    }else{
-        m_material->setGray();
+        m_material->setColor(baseColor);
     }
     anchor = newAnchor;
 }
@@ -51,10 +45,10 @@ void Atom::setCurrent(bool newCurrent) {
         m_material->setRed();
         anchor = false;  // cannot be both anchor and current
     } else if (anchor) {
-        m_material->setBlueRoyal();
+        m_material->setBlue();
     } else {
         // toggling current off, so set to white
-        m_material->setWhiteSmoke();
+        m_material->setColor(baseColor);
     }
     current = newCurrent;
 }
@@ -73,35 +67,6 @@ void Atom::setRepeating(bool newRepeat) {
         m_material->setColor(baseColor);
     }
     repeating = newRepeat;
-}
-
-bool Atom::isNotCalculated() { return notCalculated; }
-
-void Atom::setNotCalculated(bool newNotCalculated) {
-  if (newNotCalculated) {
-    notCalculated = true;
-  }
-  else {
-    notCalculated = false;
-  }
-}
-
-void Atom::setLatticePosition(int xPosition, int yPosition, int zPosition){
-  xPos = xPosition;
-  yPos = yPosition;
-  zPos = zPosition;
-}
-
-double Atom::getLatticeX(){return xPos;}
-double Atom::getLatticeY(){return yPos;}
-double Atom::getLatticeZ(){return zPos;}
-
-void Atom::setCopyNumber(int newNum){
-  copynumber = newNum;
-}
-
-int Atom::getCopyNumber(){
-  return copynumber;
 }
 
 cVector3d Atom::getVelocity() {
@@ -166,5 +131,3 @@ double Atom::getMass(){
 void Atom::setColor(cColorf color){
     m_material->setColor(color);
 }
-
-void Atom::setID(int id) { lammpsID = id; }

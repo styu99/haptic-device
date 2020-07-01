@@ -15,17 +15,11 @@ private:
     bool anchor;
     bool current;
     bool repeating;
-    bool notCalculated;
-    int copynumber;
-    double xPos;
-    double yPos;
-    double zPos;
     cVector3d velocity;
     cVector3d force;
     cShapeLine *velVector;
     double sphere_mass;
     cColorf baseColor;
-    int lammpsID;
 
 public:
     Atom(double radius, double sphere_mass, cColorf color = cColorf());
@@ -45,15 +39,6 @@ public:
     void setInitialPosition(double spawn_dist = .1);
     double getMass();
     void setColor(cColorf color);
-    void setID(int id);
-    bool isNotCalculated();
-    void setNotCalculated(bool newNotCalculated = true);
-    void setCopyNumber(int newNum);
-    int getCopyNumber();
-    void setLatticePosition(int xPosition, int yPosition, int zPosition);
-    double getLatticeX();
-    double getLatticeY();
-    double getLatticeZ();
 };
 
 #endif  // ATOM_H

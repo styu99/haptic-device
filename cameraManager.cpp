@@ -1,6 +1,7 @@
 #include "cameraManager.h"
 
 
+
 CameraManager::CameraManager(chai3d::cCamera* cam){
     camera = cam;
 

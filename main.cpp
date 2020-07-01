@@ -34,7 +34,6 @@
  */
 //==============================================================================
 //------------------------------------------------------------------------------
-#include "lammps-7Aug19/src/library.h"
 #include "atom.h"
 #include "atomManager.h"
 #include "chai3d.h"
@@ -46,9 +45,7 @@
 #include "energyGraph.h"
 #include "labelManager.h"
 #include "cameraManager.h"
-#include "energySurface.h"
-#include "assert.h"
-//-------------------------------------------laamps-7Aug19/src/STUBS/mpi.h"-----------------------------------
+//------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
 #include <unistd.h>
@@ -59,7 +56,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <cmath>
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -101,6 +97,7 @@ const double A_DAMPING = 0.99;  // 0.5
 const double K_MAGNET = 500.0;
 const double HAPTIC_STIFFNESS = 1000.0;
 const double SIGMA = 1.0;
+const double EPSILON = 1.0;
 
 // Scales the distance betweens atoms
 const double DIST_SCALE = .02;
@@ -224,28 +221,8 @@ bool freezeAtoms = false;
 // save coordinates of central atom
 double centerCoords[3] = {50.0, 50.0, 50.0};
 
-
-// for periodic boundary conditions 
-double xRepeats = 1;
-double yRepeats = 1;
-double zRepeats = 1;
-double xLength = 100;
-double yLength = 100;
-double zLength = 100;
-vector<double> PbcTrueCenter;
-double CutoffRadius = 4.8;
-
-void drawPbc();
-void updatePbc();
-
-// for LAAMPS 
-void lammpsInit(string, cTexture2dPtr);
-// LAMMPS Object
-void *lmpsObj = NULL;
-
-// mkl
 // default potential is Lennard Jones
-//Potential energySurface = LENNARD_JONES;
+Potential energySurface = LENNARD_JONES;
 
 // keep track of how long screenshot label has been displayed
 int screenshotCounter = -2;
@@ -266,11 +243,10 @@ HelpPanel *helpPanel;
 EnergyGraph *graph;
 LabelManager *labels;
 CameraManager *cameraManager;
-EnergySurface *energySurface;
+
 
 //------------------------------------------------------------------------------
 // DECLARED MACROS
-// DECLARED MACROScTexture2dPtr
 //------------------------------------------------------------------------------
 // convert to resource path
 #define RESOURCE_PATH(p) (char *)((resourceRoot + string(p)).c_str())
@@ -317,6 +293,10 @@ void mouseButtonCallback(GLFWwindow *a_window, int a_button, int a_action,
 void mouseMotionCallback(GLFWwindow *a_window, double a_posX, double a_posY);
 
 
+// declare runAmp
+//double runAmp();
+
+//vector<vector<double>> runAmpForces();
 //------------------------------------------------------------------------------
 // DECLARED MACROS
 //------------------------------------------------------------------------------
@@ -484,10 +464,10 @@ int main(int argc, char *argv[]) {
   cTexture2dPtr texture = cTexture2d::create();
   // load texture file
   bool fileload = texture->loadFromFile(
-      RESOURCE_PATH("../resources/images/spheremap-6.jpg"));
+      RESOURCE_PATH("../resources/images/spheremap-3.jpg"));
   if (!fileload) {
 #if defined(_MSVC)
-    fileload = texture->loadFromFile("../resources/images/spheremap-6.jpg");
+    fileload = texture->loadFromFile("../resources/images/spheremap-3.jpg");
 #endif
   }
   if (!fileload) {
@@ -571,14 +551,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-  } else if(strcmp(argv[1], "lammps") || strcmp(argv[1],"l")){
-      if(argc < 2){
-          cout << "ERROR: No lammps input file specified" << endl;
-      }
-      else{
-          lammpsInit(argv[2], texture);
-      }
-  }else if (argc < 3){  // read in specified file
+  } else {  // read in specified file
     string file_path = "../resources/data/";
     string file_name = argv[1];
     ifstream readFile(file_path + file_name);
@@ -590,123 +563,9 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
     string line;
-    double sphereMass;
     for (int i = 0; i < 11; i++) {
       getline(readFile, line);
-      if(i == 8){
-        sphereMass = stod(line);
-      }
     }
-
-    //get lattice lengths
-    vector<double> latticecoords;
-    getline(readFile, line);
-    string buffer;
-    stringstream ss(line);
-    while (ss >> buffer){
-      latticecoords.push_back(stod(buffer));
-    }
-    xLength = latticecoords[0];
-    yLength = latticecoords[1];
-    zLength = latticecoords[2];
-
-    for (int i = 2; i < 11; i++){
-      getline(readFile, line);
-    }
-
-    bool firstAtom = true;
-    vector<double> inputCoords;  // Create vector to hold our coordinates
-    while (true) {
-      // read in next coordinates
-      inputCoords.clear();
-      getline(readFile, line);
-      if (readFile.eof()) {
-        break;
-      }
-      string buffer;          // Have a buffer string
-      stringstream ss(line);  // Insert the string into a stream
-      while (ss >> buffer) {
-        inputCoords.push_back(stod(buffer));
-      }
-      // create a sphere and define its radius
-      Atom *new_atom = new Atom(SPHERE_RADIUS, sphereMass);
-
-      // store pointer to sphere primitive
-      spheres.push_back(new_atom);
-
-      // add sphere primitive to world
-      world->addChild(new_atom);
-
-      // add line to world
-      world->addChild(new_atom->getVelVector());
-
-      // set graphic properties of sphere
-      new_atom->setTexture(texture);
-      new_atom->m_texture->setSphericalMappingEnabled(true);
-      new_atom->setUseTexture(true);
-
-      // Set the first and second sphere (the one being controlled to red
-      // initially and the anchor in blue)
-      if (inputCoords[4] == 0) {  // sphere is current
-        new_atom->setCurrent(true);
-      } else if (inputCoords[4] == 1) {  // sphere is anchor
-        new_atom->setAnchor(true);
-      }
-      if (firstAtom) {
-        for (int i = 0; i < 3; i++) {
-          centerCoords[i] = inputCoords[i];
-          //For finding the zero point in .con file
-          PbcTrueCenter.push_back(-.02*inputCoords[i]);
-        }
-        new_atom->setLocalPos(0.0, 0.0, 0.0);
-        firstAtom = !firstAtom;
-      } else {
-        // scale coordinates
-        for (int i = 0; i < 3; i++) {
-          inputCoords[i] = 0.02 * (inputCoords[i] - centerCoords[i]);
-        }
-        new_atom->setLocalPos(inputCoords[0], inputCoords[1], inputCoords[2]);
-      }
-    }
-    readFile.close();
-  }else{
-    // determine pbc if specified
-      if (argc > 3) {
-    string file_path = "../resources/data/";
-    string file_name = argv[1];
-    xRepeats = stoi(argv[3]);
-    yRepeats = stoi(argv[4]);
-    zRepeats = stoi(argv[5]);
-
-    ifstream readFile(file_path + file_name);
-
-    // file not found, so terminate program
-    if (!readFile.good()) {
-      cout << "ERROR: Input file " << file_name << " not found" << endl;
-      cout << "Input file should be in " << file_path << endl;
-      exit(EXIT_FAILURE);
-    }
-    string line;
-    for (int i = 0; i < 2; i++) {
-      getline(readFile, line);
-    }
-
-    //get lattice lengths
-    vector<double> latticecoords;
-    getline(readFile, line);
-    string buffer;
-    stringstream ss(line);
-    while (ss >> buffer){
-      latticecoords.push_back(stod(buffer));
-    }
-    xLength = latticecoords[0];
-    yLength = latticecoords[1];
-    zLength = latticecoords[2];
-
-    for (int i = 2; i < 11; i++){
-      getline(readFile, line);
-    }
-
     bool firstAtom = true;
     vector<double> inputCoords;  // Create vector to hold our coordinates
     while (true) {
@@ -760,8 +619,6 @@ int main(int argc, char *argv[]) {
       }
     }
     readFile.close();
-    drawPbc();
-      }
   }
   for (int i = 0; i < spheres.size(); i++) {
     spheres[i]->setVelocity(0);
@@ -774,10 +631,10 @@ int main(int argc, char *argv[]) {
       c = tolower(c);
     }
     if (arg == "morse" || arg == "m") {
-      energySurface = new MorsePotential("Morse Potential");
-    }else{  
-      // default energy surface is LJ
-      energySurface = new LJPotential("Lennard Jones Potential");
+      energySurface = MORSE;
+    }else if(arg == "amp" || arg == "a"){
+      energySurface = MACHINE_LEARNING;
+     // Py_Initialize();
     }
   }
   //--------------------------------------------------------------------------
@@ -817,7 +674,7 @@ int main(int argc, char *argv[]) {
     return (-1);
   }
 
-  graph = new EnergyGraph(camera,energySurface->getType() == LENNARD_JONES, spheres.size());
+  graph = new EnergyGraph(camera,energySurface == LENNARD_JONES, spheres.size());
 
   //
   screenshotLabel->setText("Screenshot taken");
@@ -838,7 +695,13 @@ int main(int argc, char *argv[]) {
 
   // set energy surface label
   potentialLabel->setLocalPos(0, 0);
-  potentialLabel->setText("Potential energy surface: " + energySurface->getName());
+  string potentialName;
+  if (energySurface == LENNARD_JONES) {
+    potentialName = "Lennard Jones Potential";
+  } else if (energySurface == MORSE) {
+    potentialName = "Morse Potential";
+  }
+  potentialLabel->setText("Potential energy surface: " + potentialName);
   //--------------------------------------------------------------------------
   // MAIN GRAPHIC LOOP
   //--------------------------------------------------------------------------
@@ -1129,7 +992,7 @@ void updateHaptics(void) {
 
       // JD: edited this so that many operations are removed out of the inner
       // loop This loop is for computing the force on atom i
-      if(energySurface->getType() == LENNARD_JONES || energySurface->getType() == MORSE){
+      if (energySurface != MACHINE_LEARNING){
         for (int i = 0; i < spheres.size(); i++) {
           // compute force on atom
           cVector3d force;
@@ -1137,7 +1000,7 @@ void updateHaptics(void) {
           cVector3d pos0 = current->getLocalPos();
           // check forces with all other spheres
           force.zero();
-        if(current->isNotCalculated() != 1){
+
           // this loop is for finding all of atom i's neighbors
           for (int j = 0; j < spheres.size(); j++) {
             // Don't compute forces between an atom and itself
@@ -1148,21 +1011,25 @@ void updateHaptics(void) {
               // compute direction vector from sphere 0 to 1
 
               cVector3d dir01 = cNormalize(pos0 - pos1);
+
               // compute distance between both spheres
               double distance = cDistance(pos0, pos1) / DIST_SCALE;
-              
-              if(CutoffRadius > 0){
-                if (.02*distance <= .02*CutoffRadius){
-              potentialEnergy += energySurface->getEnergy(distance);
+              if (energySurface == LENNARD_JONES) {
+                potentialEnergy += getLennardJonesEnergy(distance);
+              } else if (energySurface == MORSE) {
+                potentialEnergy += getMorseEnergy(distance);
+              }
               if (!button0) {
-                    double appliedForce = energySurface->getForce(distance);
-                    force.add(appliedForce * dir01);
-              }
-              }
+                double appliedForce;
+                if (energySurface == LENNARD_JONES) {
+                  appliedForce = getLennardJonesForce(distance);
+                } else if (energySurface == MORSE) {
+                  appliedForce = getMorseForce(distance);
+                }
+                force.add(appliedForce * dir01);
               }
             }
           }
-        }
         if (force.length() > 10000) {
           force.normalize();
           force.mul(10000);
@@ -1266,100 +1133,42 @@ void updateHaptics(void) {
           }
         }
       }
-      // run LAAMPS
-      // TODO: make this not hardcoded
-     }else{ 
- // find eeeeee
-          if(lmpsObj != NULL){
-              // calculate potential energy by extracting compute
-              double actualPE = (*(double *) lammps_extract_compute(lmpsObj, (char *) "1", 0, 0));
+  }/*
+      else {
+        vector<vector<double>> ampForces = runAmpForces();
+        potentialEnergy += 2*ampForces[spheres.size()][0];
+        for (int i = 0; i < spheres.size(); i++) {
+          cVector3d force = cVector3d(ampForces[i][0], ampForces[i][1], ampForces[i][2]);
+          current = spheres[i];
+          cVector3d pos0 = current->getLocalPos();
+          current->setForce(force);
+          cVector3d sphereAcc = (force / current->getMass());
+          current->setVelocity(
+              V_DAMPING * (current->getVelocity() + timeInterval * sphereAcc));
+              // compute /position
+          cVector3d spherePos_change = timeInterval * current->getVelocity() +
+                                           cSqr(timeInterval) * sphereAcc;
+          double magnitude = spherePos_change.length();
 
-              potentialEnergy =  actualPE * 2;
-              cout << "potential energy is : " << actualPE << endl;
-
-              // uncompute so we can reuse compute id
-              lammps_command(lmpsObj, (char *) "uncompute 1");
-              lammps_command(lmpsObj, (char *) "compute 1 all pe");
-
-              // get force array, let our simulation handle velocity because of different time intervals and damping
-              int natoms = lammps_get_natoms(lmpsObj);
-              double x[natoms][3];
-              double v[natoms][3];
-              double f[natoms][3];
-
-              lammps_gather_atoms(lmpsObj, (char *) "x", 1, 3, &x);
-              lammps_gather_atoms(lmpsObj, (char *) "v", 1, 3, &v);
-              lammps_gather_atoms(lmpsObj, (char *) "f", 1, 3, &f);
-
-              lammps_command(lmpsObj, (char *) "run 1");
-
-              for (int i = 0; i < spheres.size(); i++) {
-                cVector3d force = cVector3d(f[i][0], f[i][1], f[i][2]);
-                cVector3d velocity = cVector3d(v[i][0], v[i][1], v[i][2]);
-                cVector3d position = cVector3d(x[i][0], x[i][1], x[i][2]);
-                cVector3d centerCoord = cVector3d(centerCoords[0], centerCoords[1], centerCoords[2]);
-
-                current = spheres[i];
-
-                current->setForce(force);
-                //cVector3d sphereAcc = (force / current->getMass());
-                //current->setVelocity(
-                    //V_DAMPING * (current->getVelocity() + timeInterval * sphereAcc));
-                current->setVelocity(velocity);
-                  // compute /position
-                //cVector3d spherePos_change = timeInterval * current->getVelocity() +
-                                                // cSqr(timeInterval) * sphereAcc;
-                //double magnitude = spherePos_change.length();
-                //cVector3d spherePos = current->getLocalPos() + spherePos_change;
-
-                if (current->isCurrent() || current->isAnchor()) {
-                    // update position of atoms in lammps
-                    cVector3d pos = current->getLocalPos();
-                    double newX = pos.x()/.02 + centerCoords[0];
-                    double newY = pos.y()/.02 + centerCoords[1];
-                    double newZ = pos.z()/.02 + centerCoords[2];
-                    string command = "set atom " + std::to_string(i + 1) + " x " + std::to_string(newX) + " y " + std::to_string(newY) + " z " + std::to_string(newZ);
-                    lammps_command(lmpsObj, (char *) command.c_str());
-
-                } else{
-                    current->setLocalPos(0.02 * (position - centerCoord));
-                }
-                  //current->setLocalPos(0.02 * (position - centerCoord));
-              }
-              if (!checkBounds(current->getLocalPos())) {
-                cout << "ATOM OUT OF BOUNDS";
-              }
-
+          cVector3d spherePos = current->getLocalPos() + spherePos_change;
+          if (magnitude > 5) {
+            cout << i << " velocity " << current->getVelocity().length() << endl;
+            cout << i << " force " << force.length() << endl;
+            cout << i << " acceleration " << sphereAcc.length() << endl;
+            cout << i << " time " << timeInterval << endl;
+            cout << i << " position of  " << timeInterval << endl;
           }
 
-     }
-
-      //TODO: get this to not segfault
-      /*
-      for (int k = 0; k < spheres.size(); k++){
-        Atom* currentAtom;
-        currentAtom = spheres[k];
-        cVector3d E = currentAtom->getLocalPos();
-        if (currentAtom->isNotCalculated() == false){
-          currentAtom->setLocalPos(fmod(E.x() - PbcTrueCenter[0],.02*xLength) + PbcTrueCenter[0], fmod(E.y() - PbcTrueCenter[1],.02*yLength) + PbcTrueCenter[1], fmod(E.z() + PbcTrueCenter[2],.02*zLength) - PbcTrueCenter[2]);
-          E = currentAtom->getLocalPos();
-
-          //Walls for reflection of atoms
-          if (E.x() < -.02*.5){ //There is an issue with atoms exploding when atoms are placed on the boundary when loaded. This is a temporary fix until a better idea arises.
-            currentAtom->setLocalPos(.02*xLength+E.x(),E.y(),E.z());
-            E = currentAtom->getLocalPos();
-          }
-          if (E.y() < -.02*.5){
-            currentAtom->setLocalPos(E.x(),.02*yLength+E.y(),E.z());
-            E = currentAtom->getLocalPos();
-          }
-          if (E.z() < -.02*.5){
-            currentAtom->setLocalPos(E.x(),E.y(),.02*zLength+E.z());
+          if (!current->isCurrent()) {
+            if (!current->isAnchor()) {
+              current->setLocalPos(spherePos);
+            }
           }
         }
-      }
-*/
-      updatePbc();
+        if (!checkBounds(current->getLocalPos())) {
+          cout << "ATOM OUT OF BOUNDS";
+        }
+    }*/
       current = spheres[curr_atom];
       current->setLocalPos(position);
 
@@ -1376,7 +1185,8 @@ void updateHaptics(void) {
         }
       }
 
-        //TODO: change to use AtomManager's variable 
+//TODO: change to use AtomManager's variable
+
         labels->updateNumAnchored(anchored, spheres.size(), width);
 
         graph->updateGraph(&clock, potentialEnergy);
@@ -1411,6 +1221,97 @@ void updateHaptics(void) {
   // exit haptics thread
   simulationFinished = true;
 }
+/*
+vector<vector<double>> runAmpForces(){
+  // Prepare positions so they may be passed to python
+  double atomArray [spheres.size() * 3];
+  for (int i = 0; i < spheres.size() * 3; i+=3){
+    cVector3d pos = spheres[i/3]->getLocalPos();
+    atomArray[i] = pos.x()/.02 + centerCoords[0];
+    atomArray[i+1] = pos.y()/.02 + centerCoords[1];
+    atomArray[i+2] = pos.z()/.02 + centerCoords[2];
+  }
+
+  PyObject *pName, *pModule, *pFunc;
+  PyObject *pValue, *pTuple, *pResult, *pFinal;
+  int i;
+
+  pName = PyString_FromString("calculator");
+  PyObject* objectsRepresentation = PyObject_Repr(pName);
+  const char* s = PyString_AsString(objectsRepresentation);
+  //Error checking of pName left out
+
+  pModule = PyImport_Import(pName);
+  Py_DECREF(pName);
+
+  if (pModule != NULL) {
+    pFunc = PyObject_GetAttrString(pModule, "getValues");
+    // pFunc is a new reference
+    if (pFunc && PyCallable_Check(pFunc)) {
+        pResult = PyTuple_New(spheres.size() * 3);
+        for (i = 0; i < spheres.size() * 3; ++i) {
+            pValue = PyFloat_FromDouble(atomArray[i]);
+            if (!pValue) {
+                Py_DECREF(pResult);
+                Py_DECREF(pModule);
+                fprintf(stderr, "Cannot convert argument\n");
+                //return 1;
+            }
+            // pValue reference stolen here:
+            PyTuple_SetItem(pResult, i, pValue);
+        }
+        //Create tuple to put pArgs inside of -- Becaue we need to pass one object to python
+
+        pTuple = PyTuple_New(1);
+        PyTuple_SetItem(pTuple, 0, pResult);
+        //pFinal = PyTuple_New(spheres.size() * 3);
+        pFinal = PyObject_CallObject(pFunc, pTuple);
+        if (pTuple != NULL){
+          Py_DECREF(pTuple);
+        }
+        if (pFinal != NULL) {
+          vector<vector<double>> forceArr;
+          for (int j = 0; j < spheres.size()*3; j+=3){
+            vector<double> temp;
+            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j)));
+            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j + 1)));
+            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j + 2)));
+            forceArr.push_back(temp);
+          }
+          // For the Potential Energy
+          vector<double> temp;
+          temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal, spheres.size() * 3)));
+          forceArr.push_back(temp);
+
+          return forceArr;
+          Py_DECREF(pValue);
+          Py_DECREF(pResult);
+          Py_DECREF(pFinal);
+        }
+        else {
+          Py_DECREF(pFunc);
+          Py_DECREF(pModule);
+          PyErr_Print();
+          fprintf(stderr,"Call failed\n");
+          //return 1;
+        }
+    }
+    else {
+        if (PyErr_Occurred())
+            PyErr_Print();
+        fprintf(stderr, "Cannot find function");
+        exit(1);
+    }
+    Py_XDECREF(pFunc);
+    Py_DECREF(pModule);
+}
+  else {
+    PyErr_Print();
+    fprintf(stderr, "Failed to load");
+    //return 1;
+  }
+}*/
+
 
 void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
                  int a_mods) {
@@ -1638,146 +1539,5 @@ void mouseButtonCallback(GLFWwindow *a_window, int a_button, int a_action,
         }
     } else {
         mouseState = MOUSE_IDLE;
-    }
-}
-
-void drawPbc(){
-  cTexture2dPtr texture = cTexture2d::create();
-  // load texture file
-  bool fileload = texture->loadFromFile(
-      RESOURCE_PATH("../resources/images/spheremap-6.jpg"));
-  Atom *current;
-  int count = spheres.size();
-  for (int p = 0; p < count; p++){
-    current = spheres[p];
-    current->setCurrent(false);
-    cVector3d C = current->getLocalPos();
-
-    if (current->isNotCalculated()){
-      spheres.erase(spheres.begin() + p);
-      //std::cout << "Kill!" << endl;
-    } else{
-        for (int q = -1*xRepeats; q <= xRepeats; q++){
-          for (int r = -1*yRepeats; r <= yRepeats; r++){
-            for (int s = -1*zRepeats; s <= zRepeats; s++){
-              if (q != 0 || r != 0 || s != 0){
-                cout << "q: " << q << "  r: " << r << "  s: " << s << endl;
-                Atom *new_atom = new Atom(SPHERE_RADIUS, SPHERE_MASS);
-                spheres.push_back(new_atom);
-                world->addChild(new_atom);
-                world->addChild(new_atom->getVelVector());
-                new_atom->setTexture(texture);
-                new_atom->m_texture->setSphericalMappingEnabled(true);
-                new_atom->setUseTexture(true);
-                new_atom->setLocalPos(C.x() + .02*q*xLength, C.y() + .02*r*yLength, C.z() + .02*s*zLength);
-                new_atom->setNotCalculated(true);
-                new_atom->setLatticePosition(q,r,s);
-              }
-            }
-          }
-        }
-      }
-  }
-}
-
-void updatePbc(){
- // std::cout << "Testing:" << endl;
-  Atom *currentAtom;
-  cVector3d D;
-  int numberOfAtoms = spheres.size()/((2*xRepeats + 1) * (2*yRepeats + 1) * (2*zRepeats + 1));
-  for (int p = 0; p < numberOfAtoms; p++){
-    currentAtom = spheres[p];
-    D = currentAtom->getLocalPos();
-    //std::cout << p << endl;
-    for (int q = numberOfAtoms + p*(spheres.size()/numberOfAtoms - 1); q < numberOfAtoms + (p+1)*(spheres.size()/numberOfAtoms - 1); q++){
-      currentAtom = spheres[q];
-      double xVal = currentAtom->getLatticeX();
-      //std::cout << xVal << endl;
-      double yVal = currentAtom->getLatticeY();
-      double zVal = currentAtom->getLatticeZ();
-      currentAtom->setLocalPos(D.x() + .02*xVal*xLength, D.y() + .02*yVal*yLength, D.z() + .02*zVal*zLength);
-      //std::cout << numberOfAtoms << endl;
-     // std::cout << q << " " << xVal << " " << yVal << " " << zVal << " " << endl;
-    }
-  }
-}
-void lammpsInit(string filename, cTexture2dPtr texture){
-    // energySurface = LAMMPS; TODO: undo the hardcoding
-
-    // creates global LAMMPS object
-    lammps_open_no_mpi(0, NULL, &lmpsObj);
-
-    lammps_file(lmpsObj, &filename[0]);
-
-    cout << lammps_command(lmpsObj, (char *) "compute 1 all pe") << endl;
-    int natoms = lammps_get_natoms(lmpsObj);
-    std::cout << "There are: " << natoms << " atoms" << std::endl;
-    std::cout << "LAMMPS version: " << lammps_version(lmpsObj) << std::endl;
-
-    // initialize arrays for position, velocity, and force of each atom
-    double x[natoms][3];
-    //double v[natoms][3];
-    //double f[natoms][3];
-
-    lammps_gather_atoms(lmpsObj, (char *) "x", 1, 3, &x);
-
-
-    //lammps_gather_atoms(lmpsObj, (char *) "v", 1, 3, &v);
-    //lammps_gather_atoms(lmpsObj, (char *) "f", 1, 3, &f);
-
-    /*for(int i = 0; i < natoms; i++){
-        std::cout << "array: " << v[i][0] << ", " << v[i][1] << ", " << v[i][2] << endl;
-    }
-    
-    std::cout << "There are " << natoms << " atoms in this system" << endl;*/
-
-    lammps_command(lmpsObj, (char *) "run 1");
-
-    // Create atom objects
-    bool firstAtom = true;
-    for(int i = 0; i < natoms; i++) {
-      // create a sphere and define its radius
-      Atom *new_atom = new Atom(SPHERE_RADIUS, SPHERE_MASS);
-
-      // store pointer to sphere primitive
-      spheres.push_back(new_atom);
-
-      // add sphere primitive to world
-      world->addChild(new_atom);
-
-      // add line to world
-      world->addChild(new_atom->getVelVector());
-
-      // set graphic properties of sphere
-      new_atom->setTexture(texture);
-      new_atom->m_texture->setSphericalMappingEnabled(true);
-      new_atom->setUseTexture(true);
-
-      //set lammps ID
-      new_atom->setID(i);
-
-      // Set the first and second sphere (the one being controlled to red
-      // initially and the anchor in blue)
-      if (i == 1) {  // sphere is current
-        new_atom->setCurrent(true);
-      } else if (i == 0) {  // sphere is anchor
-        new_atom->setAnchor(true);
-      }
-      if (firstAtom) {
-        for (int j = 0; j < 3; j++) {
-          centerCoords[j] = x[i][j];
-        }
-
-        new_atom->setLocalPos(0.0, 0.0, 0.0);
-        firstAtom = !firstAtom;
-      } else {
-        // scale coordinates
-        /*
-        for (int j = 0; j < 3; j++) {
-          x[i][j] = 0.02 * (x[i][j] - centerCoords[j]);
-        }
-        new_atom->setLocalPos(x[i][0], x[i][1], x[i][2]);*/
-        new_atom->setLocalPos(0.02 * (x[i][0] - centerCoords[0]), 0.02 * (x[i][1] - centerCoords[1]), 0.2 * (x[i][2] - centerCoords[2]));
-      }
     }
 }
