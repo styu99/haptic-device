@@ -45,6 +45,7 @@
 #include "energyGraph.h"
 #include "labelManager.h"
 #include "cameraManager.h"
+#include "boundaries.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -102,38 +103,6 @@ const double EPSILON = 1.0;
 // Scales the distance betweens atoms
 const double DIST_SCALE = .02;
 
-// boundary conditions
-const double BOUNDARY_LIMIT = .5;
-const cVector3d northPlanePos = cVector3d(0, BOUNDARY_LIMIT, 0);
-const cVector3d northPlaneP1 = cVector3d(1, BOUNDARY_LIMIT, 0);
-const cVector3d northPlaneP2 = cVector3d(1, BOUNDARY_LIMIT, 1);
-const cVector3d northPlaneNorm =
-    cComputeSurfaceNormal(northPlanePos, northPlaneP1, northPlaneP2);
-const cVector3d southPlanePos = cVector3d(0, -BOUNDARY_LIMIT, 0);
-const cVector3d southPlaneP1 = cVector3d(1, -BOUNDARY_LIMIT, 0);
-const cVector3d southPlaneP2 = cVector3d(1, -BOUNDARY_LIMIT, 1);
-const cVector3d southPlaneNorm =
-    cComputeSurfaceNormal(southPlanePos, southPlaneP1, southPlaneP2);
-const cVector3d eastPlanePos = cVector3d(BOUNDARY_LIMIT, 0, 0);
-const cVector3d eastPlaneP1 = cVector3d(BOUNDARY_LIMIT, 1, 0);
-const cVector3d eastPlaneP2 = cVector3d(BOUNDARY_LIMIT, 1, 1);
-const cVector3d eastPlaneNorm =
-    cComputeSurfaceNormal(eastPlanePos, eastPlaneP1, eastPlaneP2);
-const cVector3d westPlanePos = cVector3d(-BOUNDARY_LIMIT, 0, 0);
-const cVector3d westPlaneP1 = cVector3d(-BOUNDARY_LIMIT, 1, 0);
-const cVector3d westPlaneP2 = cVector3d(-BOUNDARY_LIMIT, 1, 1);
-const cVector3d westPlaneNorm =
-    cComputeSurfaceNormal(westPlanePos, westPlaneP1, westPlaneP2);
-const cVector3d forwardPlanePos = cVector3d(0, 0, BOUNDARY_LIMIT);
-const cVector3d forwardPlaneP1 = cVector3d(0, 1, BOUNDARY_LIMIT);
-const cVector3d forwardPlaneP2 = cVector3d(1, 1, BOUNDARY_LIMIT);
-const cVector3d forwardPlaneNorm =
-    cComputeSurfaceNormal(forwardPlanePos, forwardPlaneP1, forwardPlaneP2);
-const cVector3d backPlanePos = cVector3d(0, 0, -BOUNDARY_LIMIT);
-const cVector3d backPlaneP1 = cVector3d(0, 1, -BOUNDARY_LIMIT);
-const cVector3d backPlaneP2 = cVector3d(1, 1, -BOUNDARY_LIMIT);
-const cVector3d backPlaneNorm =
-    cComputeSurfaceNormal(backPlanePos, backPlaneP1, backPlaneP2);
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -696,6 +665,7 @@ int main(int argc, char *argv[]) {
   // set energy surface label
   potentialLabel->setLocalPos(0, 0);
   string potentialName;
+
   if (energySurface == LENNARD_JONES) {
     potentialName = "Lennard Jones Potential";
   } else if (energySurface == MORSE) {
@@ -787,6 +757,8 @@ void updateGraphics(void) {
   if (err != GL_NO_ERROR) cout << "Error: " << gluErrorString(err) << endl;
 }
 
+// mkl wch
+/*
 bool checkBounds(cVector3d location) {
   if (location.y() > BOUNDARY_LIMIT || location.y() < -BOUNDARY_LIMIT ||
       location.x() > BOUNDARY_LIMIT || location.x() < -BOUNDARY_LIMIT ||
@@ -794,7 +766,7 @@ bool checkBounds(cVector3d location) {
     return false;
   }
   return true;
-}
+}*/
 
 void updateHaptics(void) {
   Atom *current;
