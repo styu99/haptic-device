@@ -53,11 +53,11 @@ endif
 
 # local configuration
 SRC_DIR   = .
-HDR_DIR   = .
+HDR_DIR   = . 
 OBJ_DIR   = ./obj/$(CFG)/$(OS)-$(ARCH)-$(COMPILER)
 PROG      = $(notdir $(shell pwd)) 
-SOURCES   = $(wildcard $(SRC_DIR)/*.cpp)
-INCLUDES  = $(wildcard $(HDR_DIR)/*.h)
+SOURCES   = $(wildcard $(SRC_DIR)/*.cpp) #$(wildcard **/*.cpp)
+INCLUDES  = $(wildcard $(HDR_DIR)/*.h) #$(wildcard **/*.h)
 OBJECTS   = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(notdir $(SOURCES)))
 OUTPUT    = $(BIN_DIR)/$(PROG)
 

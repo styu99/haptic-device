@@ -1133,42 +1133,7 @@ void updateHaptics(void) {
           }
         }
       }
-  }/*
-      else {
-        vector<vector<double>> ampForces = runAmpForces();
-        potentialEnergy += 2*ampForces[spheres.size()][0];
-        for (int i = 0; i < spheres.size(); i++) {
-          cVector3d force = cVector3d(ampForces[i][0], ampForces[i][1], ampForces[i][2]);
-          current = spheres[i];
-          cVector3d pos0 = current->getLocalPos();
-          current->setForce(force);
-          cVector3d sphereAcc = (force / current->getMass());
-          current->setVelocity(
-              V_DAMPING * (current->getVelocity() + timeInterval * sphereAcc));
-              // compute /position
-          cVector3d spherePos_change = timeInterval * current->getVelocity() +
-                                           cSqr(timeInterval) * sphereAcc;
-          double magnitude = spherePos_change.length();
-
-          cVector3d spherePos = current->getLocalPos() + spherePos_change;
-          if (magnitude > 5) {
-            cout << i << " velocity " << current->getVelocity().length() << endl;
-            cout << i << " force " << force.length() << endl;
-            cout << i << " acceleration " << sphereAcc.length() << endl;
-            cout << i << " time " << timeInterval << endl;
-            cout << i << " position of  " << timeInterval << endl;
-          }
-
-          if (!current->isCurrent()) {
-            if (!current->isAnchor()) {
-              current->setLocalPos(spherePos);
-            }
-          }
-        }
-        if (!checkBounds(current->getLocalPos())) {
-          cout << "ATOM OUT OF BOUNDS";
-        }
-    }*/
+  }
       current = spheres[curr_atom];
       current->setLocalPos(position);
 
@@ -1221,97 +1186,6 @@ void updateHaptics(void) {
   // exit haptics thread
   simulationFinished = true;
 }
-/*
-vector<vector<double>> runAmpForces(){
-  // Prepare positions so they may be passed to python
-  double atomArray [spheres.size() * 3];
-  for (int i = 0; i < spheres.size() * 3; i+=3){
-    cVector3d pos = spheres[i/3]->getLocalPos();
-    atomArray[i] = pos.x()/.02 + centerCoords[0];
-    atomArray[i+1] = pos.y()/.02 + centerCoords[1];
-    atomArray[i+2] = pos.z()/.02 + centerCoords[2];
-  }
-
-  PyObject *pName, *pModule, *pFunc;
-  PyObject *pValue, *pTuple, *pResult, *pFinal;
-  int i;
-
-  pName = PyString_FromString("calculator");
-  PyObject* objectsRepresentation = PyObject_Repr(pName);
-  const char* s = PyString_AsString(objectsRepresentation);
-  //Error checking of pName left out
-
-  pModule = PyImport_Import(pName);
-  Py_DECREF(pName);
-
-  if (pModule != NULL) {
-    pFunc = PyObject_GetAttrString(pModule, "getValues");
-    // pFunc is a new reference
-    if (pFunc && PyCallable_Check(pFunc)) {
-        pResult = PyTuple_New(spheres.size() * 3);
-        for (i = 0; i < spheres.size() * 3; ++i) {
-            pValue = PyFloat_FromDouble(atomArray[i]);
-            if (!pValue) {
-                Py_DECREF(pResult);
-                Py_DECREF(pModule);
-                fprintf(stderr, "Cannot convert argument\n");
-                //return 1;
-            }
-            // pValue reference stolen here:
-            PyTuple_SetItem(pResult, i, pValue);
-        }
-        //Create tuple to put pArgs inside of -- Becaue we need to pass one object to python
-
-        pTuple = PyTuple_New(1);
-        PyTuple_SetItem(pTuple, 0, pResult);
-        //pFinal = PyTuple_New(spheres.size() * 3);
-        pFinal = PyObject_CallObject(pFunc, pTuple);
-        if (pTuple != NULL){
-          Py_DECREF(pTuple);
-        }
-        if (pFinal != NULL) {
-          vector<vector<double>> forceArr;
-          for (int j = 0; j < spheres.size()*3; j+=3){
-            vector<double> temp;
-            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j)));
-            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j + 1)));
-            temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal,j + 2)));
-            forceArr.push_back(temp);
-          }
-          // For the Potential Energy
-          vector<double> temp;
-          temp.push_back(PyFloat_AsDouble(PyList_GetItem(pFinal, spheres.size() * 3)));
-          forceArr.push_back(temp);
-
-          return forceArr;
-          Py_DECREF(pValue);
-          Py_DECREF(pResult);
-          Py_DECREF(pFinal);
-        }
-        else {
-          Py_DECREF(pFunc);
-          Py_DECREF(pModule);
-          PyErr_Print();
-          fprintf(stderr,"Call failed\n");
-          //return 1;
-        }
-    }
-    else {
-        if (PyErr_Occurred())
-            PyErr_Print();
-        fprintf(stderr, "Cannot find function");
-        exit(1);
-    }
-    Py_XDECREF(pFunc);
-    Py_DECREF(pModule);
-}
-  else {
-    PyErr_Print();
-    fprintf(stderr, "Failed to load");
-    //return 1;
-  }
-}*/
-
 
 void keyCallback(GLFWwindow *a_window, int a_key, int a_scancode, int a_action,
                  int a_mods) {
